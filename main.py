@@ -14,7 +14,7 @@ from datetime import datetime, timezone, timedelta
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from shared.config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID_SNOWFIT
-from shared.telegram import get_updates, download_file, send_message, send_error_alert
+from shared.telegram import get_updates, download_file, send_message, send_error_alert, delete_webhook, get_webhook_info
 from handler import parse_caption
 from vision import extract_order_details
 from sheet_writer import write_order
@@ -85,6 +85,14 @@ def start_polling():
     logger.info("Starting Telegram polling...")
     logger.info("Bot token set: %s", bool(TELEGRAM_BOT_TOKEN))
     logger.info("Chat ID: %s", TELEGRAM_CHAT_ID_SNOWFIT)
+
+    webhook_info = get_webhook_info()
+    logger.info("Current webhook: %s", webhook_info.get("url", "(none)"))
+    if webhook_info.get("url"):
+        logger.info("Clearing existing webhook...")
+        delete_webhook()
+    else:
+        delete_webhook()
     offset = 0
     poll_count = 0
 

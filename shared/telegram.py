@@ -7,6 +7,28 @@ logger = logging.getLogger("telegram")
 BASE_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 
 
+def delete_webhook() -> bool:
+    """Delete any existing webhook so getUpdates polling works."""
+    try:
+        resp = requests.post(f"{BASE_URL}/deleteWebhook", timeout=10)
+        result = resp.json() if resp.ok else {}
+        logger.info("deleteWebhook: %s", result)
+        return result.get("result", False)
+    except Exception as e:
+        logger.error("Failed to delete webhook: %s", e)
+        return False
+
+
+def get_webhook_info() -> dict:
+    try:
+        resp = requests.get(f"{BASE_URL}/getWebhookInfo", timeout=10)
+        if resp.ok:
+            return resp.json().get("result", {})
+    except Exception as e:
+        logger.error("Failed to get webhook info: %s", e)
+    return {}
+
+
 def get_updates(offset: int = 0) -> list:
     try:
         resp = requests.get(
