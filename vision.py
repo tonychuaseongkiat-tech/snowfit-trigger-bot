@@ -107,10 +107,10 @@ def extract_order_details(photo_bytes: bytes, mime_type: str = "image/jpeg") -> 
 
 
 def extract_order_from_pdf(pdf_bytes: bytes) -> dict | None:
-    """Extract bedframe order details from invoice PDF using Gemini 2.0 Flash."""
+    """Extract bedframe order details from invoice PDF using Gemini 2.5 Flash."""
     try:
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash",
             contents=[
                 types.Part.from_bytes(data=pdf_bytes, mime_type="application/pdf"),
                 PDF_EXTRACTION_PROMPT,
