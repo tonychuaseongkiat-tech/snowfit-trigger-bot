@@ -109,6 +109,9 @@ def start_polling():
                 chat_id = message.get("chat", {}).get("id")
                 logger.info("Message from chat %s: photo=%s, caption='%s'", chat_id, has_photo, caption[:50])
 
+                if str(chat_id) != TELEGRAM_CHAT_ID_SNOWFIT:
+                    continue
+
                 if has_photo and caption.strip().lower().startswith("/order"):
                     try:
                         process_order_message(message)
