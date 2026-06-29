@@ -51,7 +51,7 @@ Return ONLY a valid JSON object (not an array). No markdown, no explanation.
 }
 
 Rules:
-- For headboard: if ITEMS CONSIST contains "(Model [number])" (e.g. "(Model 1186)", "(Model 1253)"), return "WITH Headboard". If no (Model [number]) pattern found, return "NO Headboard"
+- For headboard: if ITEMS CONSIST contains any "(Model [number])" pattern (e.g. "(Model 3336)", "(Model 1186)", "(Model 1253)", "(Model 1254)"), return "WITH Headboard". If no (Model [number]) pattern found, return "NO Headboard"
 - For thickness_cm: extract the number from text like "22cm" or "30cm" or "37cm" or "20cm"
 - For color: extract just the code part (e.g. from "FG500-01 / Spacechip+" extract "FG500-01")
 - For storage: normalize to short form (e.g. "4 Drawer Both Side" → "4 Drawer", "8inch Divan x 2" → "8inch Divan", "Storage Bedframe" → "Storage")

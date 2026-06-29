@@ -120,6 +120,7 @@ def clean_delivery_text(raw: str) -> str:
     text = raw.strip()
     text = DELIVERY_QUALIFIERS.sub("", text).strip()
     text = re.sub(r"\s+", " ", text)
+    text = re.split(r"\s*/\s*|\s+or\s+", text)[0].strip()
     for full, short in FULL_MONTH_TO_SHORT.items():
         text = re.sub(rf"\b{full}\b", short, text, flags=re.IGNORECASE)
     text = re.sub(r"\d+\s*(?:am|pm)\b", "", text, flags=re.IGNORECASE).strip()
