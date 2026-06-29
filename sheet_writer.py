@@ -104,7 +104,17 @@ def build_row_data(parsed_caption: dict, extracted: dict) -> list:
     order_date_str = ""
     deliver_jb_str = ""
 
-    if not is_pending and parsed_caption.get("delivery_date"):
+    if is_pending:
+        month_year = parsed_caption.get("delivery_month_year", "")
+        parsed_my = parse_existing_month_year(month_year)
+        if parsed_my:
+            prev_month = parsed_my[0] - 1
+            prev_year = parsed_my[1]
+            if prev_month < 1:
+                prev_month = 12
+                prev_year -= 1
+            order_date_str = f"ORDER IN {MONTH_NAMES[prev_month].upper()}"
+    elif parsed_caption.get("delivery_date"):
         d = parsed_caption["delivery_date"]
         monday = d - timedelta(days=d.weekday())
         order_monday = monday - timedelta(weeks=3)
