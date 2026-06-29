@@ -4,7 +4,7 @@ from datetime import datetime, date
 
 logger = logging.getLogger("handler")
 
-INVOICE_PATTERN = re.compile(r"SG-(\d{4})-(\d{4})(?:\((\d+)\))?", re.IGNORECASE)
+INVOICE_PATTERN = re.compile(r"(?:SG-?)?(\d{4})-(\d{4})(?:\((\d+)\))?", re.IGNORECASE)
 
 MONTH_MAP = {
     "jan": 1, "january": 1,
