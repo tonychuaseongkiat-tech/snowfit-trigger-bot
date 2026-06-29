@@ -83,19 +83,31 @@ def process_order_message(message: dict):
 def start_polling():
     """Poll Telegram for /order messages with photos."""
     logger.info("Starting Telegram polling...")
+    logger.info("Bot token set: %s", bool(TELEGRAM_BOT_TOKEN))
+    logger.info("Chat ID: %s", TELEGRAM_CHAT_ID_SNOWFIT)
     offset = 0
+    poll_count = 0
 
     while True:
         try:
             updates = get_updates(offset)
+            poll_count += 1
+            if updates:
+                logger.info("Poll #%d: got %d updates", poll_count, len(updates))
+            elif poll_count <= 3:
+                logger.info("Poll #%d: no updates", poll_count)
+
             for update in updates:
                 offset = update["update_id"] + 1
                 message = update.get("message")
                 if not message:
+                    logger.info("Update %d: no message field", update["update_id"])
                     continue
 
                 caption = message.get("caption", "")
                 has_photo = bool(message.get("photo"))
+                chat_id = message.get("chat", {}).get("id")
+                logger.info("Message from chat %s: photo=%s, caption='%s'", chat_id, has_photo, caption[:50])
 
                 if has_photo and caption.strip().lower().startswith("/order"):
                     try:
