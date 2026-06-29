@@ -34,7 +34,7 @@ Rules:
 - Return ONLY the JSON array, no markdown, no explanation"""
 
 PDF_EXTRACTION_PROMPT = """Extract bedframe order details from this Snowfit Singapore proforma invoice PDF.
-Focus on the ITEMS CONSIST section for bedframe details and the * Remark * section for delivery date.
+Focus on the ITEMS CONSIST section for bedframe details and the *Remark* section for delivery date.
 
 Return ONLY a valid JSON object (not an array). No markdown, no explanation.
 
@@ -46,18 +46,20 @@ Return ONLY a valid JSON object (not an array). No markdown, no explanation.
   "size": "King or Queen or Single or Super",
   "thickness_cm": 22,
   "remark": "from Special Remark line in ITEMS CONSIST section only",
-  "delivery_text": "delivery info from * Remark * section",
+  "delivery_text": "simplified delivery info from *Remark* section",
   "sales_person": "from Person In Charge field, UPPERCASE"
 }
 
 Rules:
-- For headboard: if *HEADBOARD or HEADBOARD is listed as a component, WITH Headboard. Otherwise NO Headboard
+- For headboard: if ITEMS CONSIST contains "(Model [number])" (e.g. "(Model 1186)", "(Model 1253)"), return "WITH Headboard". If no (Model [number]) pattern found, return "NO Headboard"
 - For thickness_cm: extract the number from text like "22cm" or "30cm" or "37cm" or "20cm"
 - For color: extract just the code part (e.g. from "FG500-01 / Spacechip+" extract "FG500-01")
 - For storage: normalize to short form (e.g. "4 Drawer Both Side" → "4 Drawer", "8inch Divan x 2" → "8inch Divan", "Storage Bedframe" → "Storage")
 - For design: model number only (e.g. "Model 1253" → "1253")
 - For remark: look in ITEMS CONSIST section for "Special Remark - xxx" and extract the detail after the dash. Empty string if none
-- For delivery_text: from * Remark * section, extract the delivery info (e.g. "Delivery 5th Aug", "Delivery Oct", "Delivery 15 Jul 2pm"). Include just the date part without "Delivery" prefix
+- For delivery_text: from *Remark* section, find the delivery line (e.g. "Delivery end of Oct", "Delivery 5th Aug"). Return in simplified format:
+  - If only a month is mentioned (e.g. "Delivery end of Oct", "Delivery mid Nov", "Delivery Oct"): return JUST the month name (e.g. "Oct", "Nov"). Strip "end of", "mid", "early", "beginning of", "late" etc.
+  - If a specific date is mentioned (e.g. "Delivery 5th Aug", "Delivery 15 Jul"): return as "5Aug", "15Jul" (day + month abbreviation, no spaces, no ordinal suffix)
 - For sales_person: from "Person In Charge:" field, UPPERCASE
 - Return ONLY the JSON object"""
 

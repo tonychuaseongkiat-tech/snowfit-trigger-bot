@@ -119,7 +119,13 @@ def process_pdf_trigger(order_id: str) -> dict:
     delivery_text = extracted.get("delivery_text", "")
     delivery_info = parse_delivery(f"Delivery {delivery_text}") if delivery_text else None
 
-    if delivery_info and delivery_info["has_specific_date"]:
+    if not delivery_info:
+        logger.warning("Could not parse delivery info for %s: '%s'", order_id, delivery_text)
+        send_error_alert("bedframe-trigger", "delivery_parse",
+                         f"Could not extract delivery info for {order_id}\nRaw: '{delivery_text}'\nPlease add to EU sheet manually")
+        return {"status": "error", "reason": f"Could not parse delivery info: '{delivery_text}'"}
+
+    if delivery_info["has_specific_date"]:
         is_pending = False
     else:
         is_pending = True
@@ -127,10 +133,10 @@ def process_pdf_trigger(order_id: str) -> dict:
     parsed_caption = {
         "invoice_raw": order_id,
         "pi_no": pi_no,
-        "delivery_raw": delivery_info["raw"] if delivery_info else "",
-        "delivery_date": delivery_info.get("date") if delivery_info else None,
-        "delivery_month_year": delivery_info.get("month_year") if delivery_info else None,
-        "has_specific_date": delivery_info["has_specific_date"] if delivery_info else False,
+        "delivery_raw": delivery_info["raw"],
+        "delivery_date": delivery_info.get("date"),
+        "delivery_month_year": delivery_info.get("month_year"),
+        "has_specific_date": delivery_info["has_specific_date"],
         "is_pending": is_pending,
     }
 

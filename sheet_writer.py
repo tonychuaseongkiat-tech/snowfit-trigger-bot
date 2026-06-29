@@ -134,7 +134,7 @@ def build_row_data(parsed_caption: dict, extracted: dict) -> list:
         extracted.get("size", ""),                    # G - Size
         extracted.get("mattress", ""),                # H - For Mattress
         extracted.get("remark", ""),                  # I - Special Remark
-        "TONY",                                      # J - Sales Person
+        extracted.get("sales_person", "TONY"),       # J - Sales Person
         parsed_caption["delivery_raw"],              # K - Delivery Mth
         order_date_str,                              # L - Order Date
         deliver_jb_str,                              # M - DELIVER JB
