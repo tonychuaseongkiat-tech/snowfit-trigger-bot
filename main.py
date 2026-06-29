@@ -6,6 +6,7 @@ Extracts order details via Gemini Vision AI and writes to Google Sheet.
 """
 
 import os
+import re
 import logging
 import threading
 import time
@@ -102,6 +103,29 @@ def process_order_message(message: dict):
     send_message(chat_id, "\n".join(reply_lines), message_id)
 
 
+DELIVERY_QUALIFIERS = re.compile(
+    r"\b(end\s+of|beginning\s+of|start\s+of|mid|early|late|around|approx|approximately)\b",
+    re.IGNORECASE,
+)
+
+FULL_MONTH_TO_SHORT = {
+    "january": "Jan", "february": "Feb", "march": "Mar", "april": "Apr",
+    "may": "May", "june": "Jun", "july": "Jul", "august": "Aug",
+    "september": "Sep", "october": "Oct", "november": "Nov", "december": "Dec",
+}
+
+
+def clean_delivery_text(raw: str) -> str:
+    """Clean Gemini's delivery text for parse_delivery compatibility."""
+    text = raw.strip()
+    text = DELIVERY_QUALIFIERS.sub("", text).strip()
+    text = re.sub(r"\s+", " ", text)
+    for full, short in FULL_MONTH_TO_SHORT.items():
+        text = re.sub(rf"\b{full}\b", short, text, flags=re.IGNORECASE)
+    text = re.sub(r"\d+\s*(?:am|pm)\b", "", text, flags=re.IGNORECASE).strip()
+    return text
+
+
 def process_pdf_trigger(order_id: str) -> dict:
     """Process a bedframe order from invoice PDF on Google Drive."""
     logger.info("PDF trigger for %s", order_id)
@@ -116,7 +140,9 @@ def process_pdf_trigger(order_id: str) -> dict:
 
     pi_no = convert_invoice_to_pi(order_id)
 
-    delivery_text = extracted.get("delivery_text", "")
+    raw_delivery = extracted.get("delivery_text", "")
+    delivery_text = clean_delivery_text(raw_delivery) if raw_delivery else ""
+    logger.info("Delivery text for %s: raw='%s' cleaned='%s'", order_id, raw_delivery, delivery_text)
     delivery_info = parse_delivery(f"Delivery {delivery_text}") if delivery_text else None
 
     if not delivery_info:

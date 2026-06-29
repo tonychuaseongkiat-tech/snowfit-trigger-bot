@@ -121,6 +121,19 @@ def parse_delivery(line: str) -> dict | None:
                 "has_specific_date": True,
             }
 
+    month_year_match = re.match(r"(\w+)\s+(\d{4})", text.strip(), re.IGNORECASE)
+    if month_year_match:
+        month_str = month_year_match.group(1).lower()
+        month = MONTH_MAP.get(month_str)
+        if month:
+            year = int(month_year_match.group(2))
+            raw = f"{month:02d}/{year}"
+            return {
+                "raw": raw,
+                "month_year": f"{month:02d}/{year}",
+                "has_specific_date": False,
+            }
+
     month_str = text.strip().lower()
     month = MONTH_MAP.get(month_str)
     if month:
