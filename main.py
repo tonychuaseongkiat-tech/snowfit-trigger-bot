@@ -15,9 +15,10 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from shared.config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID_SNOWFIT
 from shared.telegram import get_updates, download_file, send_message, send_error_alert, delete_webhook, get_webhook_info
-from handler import parse_caption
-from vision import extract_order_details
+from handler import parse_caption, parse_delivery, convert_invoice_to_pi
+from vision import extract_order_details, extract_order_from_pdf
 from sheet_writer import write_order
+from drive_reader import download_invoice_pdf
 
 SGT = timezone(timedelta(hours=8))
 PORT = int(os.environ.get("PORT", 8080))
@@ -101,6 +102,43 @@ def process_order_message(message: dict):
     send_message(chat_id, "\n".join(reply_lines), message_id)
 
 
+def process_pdf_trigger(order_id: str) -> dict:
+    """Process a bedframe order from invoice PDF on Google Drive."""
+    logger.info("PDF trigger for %s", order_id)
+
+    pdf_bytes = download_invoice_pdf(order_id)
+    if not pdf_bytes:
+        return {"status": "error", "reason": f"PDF not found for {order_id}"}
+
+    extracted = extract_order_from_pdf(pdf_bytes)
+    if not extracted:
+        return {"status": "error", "reason": f"Gemini extraction failed for {order_id}"}
+
+    pi_no = convert_invoice_to_pi(order_id)
+
+    delivery_text = extracted.get("delivery_text", "")
+    delivery_info = parse_delivery(f"Delivery {delivery_text}") if delivery_text else None
+
+    if delivery_info and delivery_info["has_specific_date"]:
+        is_pending = False
+    else:
+        is_pending = True
+
+    parsed_caption = {
+        "invoice_raw": order_id,
+        "pi_no": pi_no,
+        "delivery_raw": delivery_info["raw"] if delivery_info else "",
+        "delivery_date": delivery_info.get("date") if delivery_info else None,
+        "delivery_month_year": delivery_info.get("month_year") if delivery_info else None,
+        "has_specific_date": delivery_info["has_specific_date"] if delivery_info else False,
+        "is_pending": is_pending,
+    }
+
+    result = write_order(parsed_caption, extracted)
+    logger.info("PDF trigger result for %s: %s", order_id, result)
+    return result
+
+
 def start_polling():
     """Poll Telegram for /order messages with photos."""
     logger.info("Starting Telegram polling...")
@@ -168,6 +206,35 @@ class HealthHandler(BaseHTTPRequestHandler):
                 "time": now,
             })
             self.wfile.write(body.encode())
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def do_POST(self):
+        if self.path == "/trigger/bedframe":
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_length)
+            try:
+                data = json.loads(body)
+                order_id = data.get("order_id", "")
+                if not order_id:
+                    self.send_response(400)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": "order_id required"}).encode())
+                    return
+
+                result = process_pdf_trigger(order_id)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps(result).encode())
+            except Exception as e:
+                logger.error("Trigger error: %s", e, exc_info=True)
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode())
         else:
             self.send_response(404)
             self.end_headers()

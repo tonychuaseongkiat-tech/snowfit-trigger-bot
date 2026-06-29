@@ -12,6 +12,10 @@ EU_BEDFRAME_SHEET_ID = os.environ.get(
 )
 SHEET_TAB = "Sheet1"
 
+INVOICE_FOLDER_ID = os.environ.get(
+    "INVOICE_FOLDER_ID", "1U1RKlFve6MVxIEJMOIjJimB_--xDcqJ9"
+)
+
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive",
