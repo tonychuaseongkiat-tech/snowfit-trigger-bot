@@ -34,7 +34,7 @@ Rules:
 - Return ONLY the JSON array, no markdown, no explanation"""
 
 PDF_EXTRACTION_PROMPT = """Extract bedframe order details from this Snowfit Singapore proforma invoice PDF.
-Focus on the ITEMS CONSIST section for bedframe details and the *Remark* section for delivery date.
+Scan the ENTIRE invoice for all details.
 
 Return ONLY a valid JSON object (not an array). No markdown, no explanation.
 
@@ -46,20 +46,21 @@ Return ONLY a valid JSON object (not an array). No markdown, no explanation.
   "size": "King or Queen or Single or Super",
   "thickness_cm": 22,
   "remark": "from Special Remark line in ITEMS CONSIST section only",
-  "delivery_text": "simplified delivery info from *Remark* section",
+  "delivery_text": "delivery month or date from anywhere in the invoice",
   "sales_person": "from Person In Charge field, UPPERCASE"
 }
 
 Rules:
-- For headboard: if ITEMS CONSIST contains any "(Model [number])" pattern (e.g. "(Model 3336)", "(Model 1186)", "(Model 1253)", "(Model 1254)"), return "WITH Headboard". If no (Model [number]) pattern found, return "NO Headboard"
+- For headboard: scan the ENTIRE invoice for "Model NNNN" (e.g. "Model 3336", "Model 1186", "Model 1253", "Model 1254"). If any "Model" followed by a number is found anywhere in the invoice, return "WITH Headboard". If no model number found, return "NO Headboard"
 - For thickness_cm: extract the number from text like "22cm" or "30cm" or "37cm" or "20cm"
 - For color: extract just the code part (e.g. from "FG500-01 / Spacechip+" extract "FG500-01")
 - For storage: normalize to short form (e.g. "4 Drawer Both Side" → "4 Drawer", "8inch Divan x 2" → "8inch Divan", "Storage Bedframe" → "Storage")
 - For design: model number only (e.g. "Model 1253" → "1253")
 - For remark: look in ITEMS CONSIST section for "Special Remark - xxx" and extract the detail after the dash. Empty string if none
-- For delivery_text: from *Remark* section, find the delivery line (e.g. "Delivery end of Oct", "Delivery 5th Aug"). Return in simplified format:
-  - If only a month is mentioned (e.g. "Delivery end of Oct", "Delivery mid Nov", "Delivery Oct"): return JUST the month name (e.g. "Oct", "Nov"). Strip "end of", "mid", "early", "beginning of", "late" etc.
+- For delivery_text: scan the ENTIRE invoice for delivery month or date. Check *Remark* section, PAYMENT section, and any other section. Return in simplified format:
+  - If only a month is mentioned (e.g. "Delivery end of Oct", "around August", "ETA November"): return JUST the first month name (e.g. "Oct", "Aug", "Nov"). Strip "end of", "mid", "early", "beginning of", "late", "around" etc.
   - If a specific date is mentioned (e.g. "Delivery 5th Aug", "Delivery 15 Jul"): return as "5Aug", "15Jul" (day + month abbreviation, no spaces, no ordinal suffix)
+  - If multiple months mentioned (e.g. "End of July / Early August"), return the FIRST month only (e.g. "Jul")
 - For sales_person: from "Person In Charge:" field, UPPERCASE
 - Return ONLY the JSON object"""
 
