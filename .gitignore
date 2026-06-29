@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.env
+credentials.json
+credentials_base64.txt
+logs/
+*.log
+.DS_Store
