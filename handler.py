@@ -24,16 +24,18 @@ MONTH_MAP = {
 
 def parse_caption(text: str) -> dict | None:
     """
-    Parse /order caption into structured data.
+    Parse /order caption into structured data. Supports multiple invoice numbers.
 
-    Expected format (one item per line):
+    Expected format:
         /order
-        SG-0626-0037
-        Delivery Oct
+        0426-0032(1)
+        0426-0032(2)
+        Delivery Aug
         Pending          (optional)
 
-    Returns dict with: invoice_raw, pi_no, delivery_raw, delivery_date,
-                       delivery_month_year, is_pending, has_specific_date
+    Returns dict with: invoices (list of {invoice_raw, pi_no}),
+                       delivery_raw, delivery_date, delivery_month_year,
+                       is_pending, has_specific_date
     """
     if not text:
         return None
@@ -46,37 +48,31 @@ def parse_caption(text: str) -> dict | None:
     if len(lines) < 3:
         return None
 
-    invoice_line = lines[1]
-    match = INVOICE_PATTERN.search(invoice_line)
-    if not match:
-        return None
-
-    month_code = match.group(1)
-    seq_num = match.group(2)
-    sub_num = match.group(3)
-
-    if sub_num:
-        pi_no = f"PIS-{month_code}<{seq_num}>{sub_num}"
-    else:
-        pi_no = f"PIS-{month_code}<{seq_num}>"
-
-    invoice_raw = match.group(0)
-
-    delivery_line = lines[2]
-    delivery_info = parse_delivery(delivery_line)
-    if not delivery_info:
-        return None
-
+    invoices = []
+    delivery_info = None
     is_pending = False
-    if len(lines) >= 4:
-        for line in lines[3:]:
-            if line.lower().strip() == "pending":
-                is_pending = True
-                break
+
+    for line in lines[1:]:
+        match = INVOICE_PATTERN.search(line)
+        if match:
+            month_code = match.group(1)
+            seq_num = match.group(2)
+            sub_num = match.group(3)
+            if sub_num:
+                pi_no = f"PIS-{month_code}<{seq_num}>{sub_num}"
+            else:
+                pi_no = f"PIS-{month_code}<{seq_num}>"
+            invoices.append({"invoice_raw": match.group(0), "pi_no": pi_no})
+        elif line.lower().startswith("delivery"):
+            delivery_info = parse_delivery(line)
+        elif line.lower().strip() == "pending":
+            is_pending = True
+
+    if not invoices or not delivery_info:
+        return None
 
     return {
-        "invoice_raw": invoice_raw,
-        "pi_no": pi_no,
+        "invoices": invoices,
         "delivery_raw": delivery_info["raw"],
         "delivery_date": delivery_info.get("date"),
         "delivery_month_year": delivery_info.get("month_year"),

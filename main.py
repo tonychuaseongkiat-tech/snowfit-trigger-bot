@@ -31,17 +31,19 @@ logger = logging.getLogger("snowfit-trigger-bot")
 
 
 def process_order_message(message: dict):
-    """Process a single /order message with photo."""
+    """Process a /order message with photo. Supports multiple invoice numbers."""
     chat_id = str(message["chat"]["id"])
     message_id = message["message_id"]
     caption = message.get("caption", "")
 
     parsed = parse_caption(caption)
     if not parsed:
-        send_message(chat_id, "❌ Could not parse caption. Expected format:\n/order\nSG-XXXX-XXXX\nDelivery [date/month]\n[Pending]", message_id)
+        send_message(chat_id, "❌ Could not parse caption. Expected format:\n/order\n0626-0037\nDelivery [date/month]\n[Pending]", message_id)
         return
 
-    logger.info("Processing order: %s (pending=%s)", parsed["pi_no"], parsed["is_pending"])
+    invoices = parsed["invoices"]
+    logger.info("Processing %d order(s): %s (pending=%s)",
+                len(invoices), [i["pi_no"] for i in invoices], parsed["is_pending"])
 
     photos = message.get("photo", [])
     if not photos:
@@ -56,28 +58,47 @@ def process_order_message(message: dict):
         send_message(chat_id, "❌ Failed to download photo.", message_id)
         return
 
-    extracted = extract_order_details(photo_bytes)
-    if not extracted:
+    extracted_list = extract_order_details(photo_bytes)
+    if not extracted_list:
         send_message(chat_id, "❌ Could not extract order details from photo. Please try with a clearer image.", message_id)
         return
 
-    try:
-        result = write_order(parsed, extracted)
-    except Exception as e:
-        logger.error("Sheet write failed: %s", e, exc_info=True)
-        send_message(chat_id, f"❌ Failed to write to sheet: {e}", message_id)
-        send_error_alert("snowfit-trigger-bot", "write_order", str(e))
-        return
+    if len(extracted_list) < len(invoices):
+        logger.warning("Photo has %d items but caption has %d invoices — padding with last extracted",
+                       len(extracted_list), len(invoices))
+        while len(extracted_list) < len(invoices):
+            extracted_list.append(extracted_list[-1])
 
-    if result["status"] == "ok":
-        section = result["section"]
-        row = result["row"]
-        pi_no = result["pi_no"]
-        delivery = result["delivery"]
-        emoji = "📋" if section == "Pending" else "✅"
-        send_message(chat_id, f"{emoji} *{pi_no}* added to *{section}* (row {row}) — Delivery {delivery}", message_id)
-    else:
-        send_message(chat_id, f"❌ Error: {result.get('reason', 'unknown')}", message_id)
+    results = []
+    for i, invoice in enumerate(invoices):
+        extracted = extracted_list[i] if i < len(extracted_list) else extracted_list[-1]
+
+        single_parsed = {
+            "invoice_raw": invoice["invoice_raw"],
+            "pi_no": invoice["pi_no"],
+            "delivery_raw": parsed["delivery_raw"],
+            "delivery_date": parsed.get("delivery_date"),
+            "delivery_month_year": parsed.get("delivery_month_year"),
+            "has_specific_date": parsed["has_specific_date"],
+            "is_pending": parsed["is_pending"],
+        }
+
+        try:
+            result = write_order(single_parsed, extracted)
+            results.append(result)
+        except Exception as e:
+            logger.error("Sheet write failed for %s: %s", invoice["pi_no"], e, exc_info=True)
+            results.append({"status": "error", "pi_no": invoice["pi_no"], "reason": str(e)})
+
+    reply_lines = []
+    for r in results:
+        if r["status"] == "ok":
+            emoji = "📋" if r["section"] == "Pending" else "✅"
+            reply_lines.append(f"{emoji} *{r['pi_no']}* → *{r['section']}* (row {r['row']}) — Delivery {r['delivery']}")
+        else:
+            reply_lines.append(f"❌ *{r.get('pi_no', '?')}* — {r.get('reason', 'unknown error')}")
+
+    send_message(chat_id, "\n".join(reply_lines), message_id)
 
 
 def start_polling():
